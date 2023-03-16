@@ -1,5 +1,18 @@
 use rand::seq::SliceRandom;
 
+use std::f64::consts::E;
+
+fn softmax(x: &[f64]) -> Vec<f64> {
+    let mut result = vec![0.0; x.len()];
+    let sum: f64 = x.iter().map(|&v| E.powf(v)).sum();
+
+    for i in 0..x.len() {
+        result[i] = E.powf(x[i]) / sum;
+    }
+
+    result
+}
+
 fn init() -> (Vec<[usize; 3]>, Vec<[usize; 3]>, Vec<[usize; 7]>) {
     // 初始化蜂巢图
     let mut comb = vec![[0, 0, 0]; 20];
