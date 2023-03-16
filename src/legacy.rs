@@ -1,5 +1,3 @@
-pub mod legacy;
-
 use rand::seq::SliceRandom;
 
 use std::f64::consts::E;
@@ -37,7 +35,7 @@ fn softmax(x: &Vec<f64>) -> Vec<f64> {
 
 fn init() -> (Vec<[usize; 3]>, Vec<[usize; 3]>, Vec<[usize; 7]>) {
     // 初始化蜂巢图
-    let comb = vec![[0, 0, 0]; 20];
+    let mut comb = vec![[0, 0, 0]; 20];
 
     // 初始化发牌
     let mut card_list = Vec::new();
@@ -148,7 +146,7 @@ use std::f64;
 
 use std::vec::Vec;
 
-fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -> f64 {
+pub(crate) fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -> f64 {
     let mut sum: f64 = 0.0;
     let mut block_count: f64 = 0.0;
     for i in 0..20 {
@@ -256,7 +254,7 @@ fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -
     return sum;
 }
 
-fn step<'a>(
+pub(crate) fn step<'a>(
     comb: &'a mut Vec<[usize; 3]>,
     lines: &'a Vec<[usize; 7]>,
     vars: &'a Vec<f64>,
@@ -364,19 +362,8 @@ fn eval_play(vars: &Vec<f64>) {
     }
 }
 
-fn self_play_compare(vars: &Vec<f64>, vars2: &Vec<f64>) -> (f64, f64) {
+fn self_play(vars: &Vec<f64>) -> f64 {
     let (mut comb, card_list, lines) = init();
-    let score_legacy = {
-        let mut comb = comb.clone();
-        for i in 0..20 {
-            let (_, put) = legacy::step(&mut comb, &lines, vars2, card_list[i], false);
-            /*println!(
-                "card: {},{},{} put: {}",
-                card_list[i][0], card_list[i][1], card_list[i][2], put
-            );*/
-        }
-        legacy::exp_score(&mut comb, &lines, vars)
-    };
     for i in 0..20 {
         let (_, put) = step(&mut comb, &lines, vars, card_list[i], false);
         /*println!(
@@ -385,19 +372,17 @@ fn self_play_compare(vars: &Vec<f64>, vars2: &Vec<f64>) -> (f64, f64) {
         );*/
     }
     let score = exp_score(&mut comb, &lines, vars);
-    return (score, score_legacy);
+    return score;
 }
 
-fn evaluate(vars: &Vec<f64>, vars2: &Vec<f64>, times: usize) -> f64 {
+fn evaluate(vars: &Vec<f64>, times: usize) -> f64 {
     let mut highest = 0.;
     let mut lowest = 3000.;
     let mut score = 0.;
-    let mut score_legacy = 0.;
     let mut p_score = 0.;
     for i in 0..times {
-        let (sc, sc_legacy) = self_play_compare(vars, vars2);
+        let sc = self_play(vars);
         score += sc;
-        score_legacy += sc_legacy;
         p_score += sc;
         if sc > highest {
             highest = sc;
@@ -407,11 +392,10 @@ fn evaluate(vars: &Vec<f64>, vars2: &Vec<f64>, times: usize) -> f64 {
         }
         if (i + 1) % 10000 == 0 {
             println!(
-                "Evaluated {} games, Part avg is {}, Total avg is {}, Legacy avg is {}, high: {}, low: {}",
+                "Evaluated {} games, Part avg is {}, Total avg is {}, high: {}, low: {}",
                 i + 1,
                 p_score / 10000.,
                 score / (i as f64 + 1.),
-                score_legacy / (i as f64 + 1.),
                 highest,
                 lowest
             );
@@ -419,28 +403,11 @@ fn evaluate(vars: &Vec<f64>, vars2: &Vec<f64>, times: usize) -> f64 {
         }
     }
     println!(
-        "-------------------------------\nEvaluated {} games, Avg score is {}(Legacy {}), high: {}, low: {}",
+        "-------------------------------\nEvaluated {} games, Avg score is {}, high: {}, low: {}",
         times,
         score / times as f64,
-        score_legacy / times as f64,
         highest,
         lowest
     );
     return score / times as f64;
-}
-
-fn main() {
-    let vars = vec![
-        1.00, 0.721, 0.3993, 0.1947, 0.069, 0.0312, 0.75, 0.0, 0.08465, 0.08164, 18.,
-    ];
-    //eval_play(&vars)
-    let vars2 = vec![
-        1.00, 0.721, 0.3993, 0.1947, 0.069, 0.0312, 0.75, 0.0, 0.08465, 0.08164, 18.,
-    ];
-    
-    for i in 0..1 {
-        evaluate(&vars, &vars2, 100000);
-    }
-    
-    
 }
