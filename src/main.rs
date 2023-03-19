@@ -1,10 +1,11 @@
 pub mod legacy;
+pub mod search;
 
 use rand::seq::SliceRandom;
 
+use rand::prelude::*;
 use std::f64::consts::E;
 use std::io::stdin;
-use rand::prelude::*;
 
 fn select_from_probabilities(probabilities: &Vec<f64>) -> (usize, f64) {
     let mut rng = thread_rng();
@@ -274,11 +275,11 @@ fn step<'a>(
                 if score >= mx + 0.4 {
                     mx = score;
                     put = i;
-                }else if rand::thread_rng().gen_bool((score - mx) / 0.4 * 0.3 + 0.7) {
+                } else if rand::thread_rng().gen_bool((score - mx) / 0.4 * 0.3 + 0.7) {
                     mx = score;
                     put = i;
                 }
-            }else if score > mx - 0.4 {
+            } else if score > mx - 0.4 {
                 if !rand::thread_rng().gen_bool((mx - score) / 0.4 * 0.3 + 0.7) {
                     mx = score;
                     put = i;
@@ -304,6 +305,140 @@ fn step<'a>(
         }
     }
     return (comb, put);
+}
+
+fn step_exp<'a>(
+    comb: &'a mut Vec<[usize; 3]>,
+    lines: &'a Vec<[usize; 7]>,
+    cards: &'a Vec<[usize; 3]>,
+    vars: &'a Vec<f64>,
+    now: [usize; 3],
+    log: bool,
+    eval: bool
+) -> (&'a mut Vec<[usize; 3]>, usize) {
+    let mut valid = 0;
+    let put;
+    for i in 0..20 {
+        if comb[i] == [0, 0, 0] {
+            valid += 1
+        }
+    }
+    if valid >= 40 {
+        if eval {
+            return step_eval(comb, lines, vars, now, log);
+        }
+        return step(comb, lines, vars, now, log);
+    }else {
+
+        let exp = explore(comb, lines, cards, vars, now, valid);
+        //put = select_from_probabilities(so&softmax(&exp)).0;
+        let mut map = exp
+        .iter()
+        .enumerate()
+        .map(|(k, v)| (k, v))
+        .collect::<Vec<(usize, &f64)>>();
+        map.sort_by(|(k1, v1), (k2, v2)| v2.partial_cmp(v1).unwrap());
+        put = map[0].0;
+        if !eval {
+            comb[put] = now;
+        }
+        if log {
+            for i in 0..3 {
+                println!("建议位置: {} 得分: {}", map[i].0, map[i].1);
+            }
+        }
+        return (comb, put);
+                
+    }
+}
+
+fn explore<'a>(
+    comb: &'a mut Vec<[usize; 3]>,
+    lines: &'a Vec<[usize; 7]>,
+    cards: &'a Vec<[usize; 3]>,
+    vars: &'a Vec<f64>,
+    now: [usize; 3],
+    valid: usize
+) -> [f64; 20] {
+    let mut scores = [-1.; 20];
+    let big5;
+    if valid > 1 {
+        for i in 0..20 {
+            if comb[i] == [0, 0, 0] {
+                comb[i] = now;
+                scores[i] = exp_score(comb, lines, vars);
+                comb[i] = [0, 0, 0];
+            }
+        }
+        let mut s = scores.clone();
+        s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
+        big5 = s[6];
+    }else {
+        big5 = 0.
+    }
+    for i in 0..20 {
+        if comb[i] == [0, 0, 0] {
+            comb[i] = now;
+            if valid > 1 && scores[i] >= big5 {
+                scores[i] = 0.;
+                cards.iter().enumerate().for_each(|(ind, card)|{
+                    let mut scores1 = [0.; 20];
+                    let mut cards1 = cards.clone();
+                    cards1.remove(ind);
+                    let big7;
+                    if valid > 2 {
+                        for j in 0..20 {
+                            if comb[j] == [0, 0, 0] {
+                                comb[j] = now;
+                                scores1[j] = exp_score(comb, lines, vars);
+                                comb[j] = [0, 0, 0];
+                            }
+                        }
+                        let mut s = scores1.clone();
+                        s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
+                        big7 = s[6];
+                    }else {
+                        big7 = 0.
+                    }
+                    for j in 0..20 {
+                        if comb[j] == [0, 0, 0] {
+                            comb[j] = *card;
+                            if valid > 2 && scores1[j] >= big7{
+                                scores1[j] = 0.;
+                                cards1.iter().enumerate().for_each(|(_, card)|{
+                                    let mut mx = 0.;
+                                    for k in 0..20 {
+                                        if comb[k] == [0, 0, 0] {
+                                            comb[k] = *card;
+                                            let score = exp_score(comb, lines, vars);
+                                            if score > mx {
+                                                mx = score;
+                                            }
+                                            comb[k] = [0, 0, 0];
+                                        }
+                                    }
+                                    scores1[j] += mx;
+                                });
+                            }else if valid <= 2{
+                                scores1[j] = exp_score(comb, lines, vars);
+                            }
+                            comb[j] = [0, 0, 0];
+                        }
+                    }
+                    scores[i] += scores1.iter().max_by(|f1, f2|f1.partial_cmp(f2).unwrap()).unwrap() / if valid > 2 {cards1.len() as f64} else {1.};
+                });
+            }else if valid <= 1 {
+                scores[i] = exp_score(comb, lines, vars);
+            }
+            comb[i] = [0, 0, 0];
+        }
+    }
+    if valid > 1 {
+        for i in &mut scores {
+            *i /= cards.len() as f64
+        }
+    }
+    return scores;
 }
 
 fn step_eval<'a>(
@@ -346,7 +481,7 @@ fn step_eval<'a>(
 }
 
 fn eval_play(vars: &Vec<f64>) {
-    let (mut comb, _, lines) = init();
+    let (mut comb, mut card_list, lines) = init();
     for i in 0..20 {
         let mut buf = String::new();
         println!("input card");
@@ -354,11 +489,34 @@ fn eval_play(vars: &Vec<f64>) {
             let card: [usize; 3];
             if buf.trim().len() == 6 {
                 card = [10; 3];
-            }else {
+            } else {
                 let mut chars = buf.chars();
-                card = [chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap(), chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap(), chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap()]
+                card = [
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                ]
             }
-            let (_, _) = step_eval(&mut comb, &lines, vars, card, true);
+            card_list.remove(card_list.iter().position(|e| *e == card).unwrap());
+            let (_, _) = step_exp(&mut comb, &lines, &card_list, vars, card, true, true);
             let mut buf_put = String::new();
             while stdin().read_line(&mut buf_put).err().is_none() {
                 let p = buf_put.trim().parse::<usize>().unwrap();
@@ -401,7 +559,7 @@ fn self_play_compare(vars: &Vec<f64>, vars2: &Vec<f64>) -> (f64, f64) {
 fn self_play(vars: &Vec<f64>) -> f64 {
     let (mut comb, card_list, lines) = init();
     for i in 0..20 {
-        let (_, put) = step(&mut comb, &lines, vars, card_list[i], false);
+        let (_, put) = step_exp(&mut comb, &lines, &card_list[i+1..].to_vec(), vars, card_list[i], false, false);
         /*println!(
             "card: {},{},{} put: {}",
             card_list[i][0], card_list[i][1], card_list[i][2], put
@@ -427,11 +585,11 @@ fn test(vars: &Vec<f64>, times: usize) -> f64 {
         if sc < lowest {
             lowest = sc;
         }
-        if (i + 1) % 10000 == 0 {
+        if (i + 1) % 1000 == 0 {
             println!(
                 "Evaluated {} games, Part avg is {}, Total avg is {}, high: {}, low: {}",
                 i + 1,
-                p_score / 10000.,
+                p_score / 1000.,
                 score / (i as f64 + 1.),
                 highest,
                 lowest
@@ -466,11 +624,11 @@ fn evaluate(vars: &Vec<f64>, vars2: &Vec<f64>, times: usize) -> f64 {
         if sc < lowest {
             lowest = sc;
         }
-        if (i + 1) % 10000 == 0 {
+        if (i + 1) % 100 == 0 {
             println!(
                 "Evaluated {} games, Part avg is {}, Total avg is {}, Legacy avg is {}, high: {}, low: {}",
                 i + 1,
-                p_score / 10000.,
+                p_score / 100.,
                 score / (i as f64 + 1.),
                 score_legacy / (i as f64 + 1.),
                 highest,
@@ -494,13 +652,11 @@ fn main() {
     let vars = vec![
         1.00, 0.721, 0.3993, 0.1947, 0.069, 0.0312, 0.75, 0.008, 0.08465, 0.08164, 18.,
     ];
-    
+
     let vars2 = vec![
         1.00, 0.721, 0.3993, 0.1947, 0.069, 0.0312, 0.75, 0.008, 0.08465, 0.08164, 18.,
     ];
-    //eval_play(&vars);
-    evaluate(&vars, &vars2, 100000);
-    //test(&vars, 1000000);
-    
-    
+    eval_play(&vars);
+    //evaluate(&vars, &vars2, 100000);
+    //test(&vars, 100000);
 }
