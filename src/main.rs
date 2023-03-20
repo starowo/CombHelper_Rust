@@ -372,7 +372,7 @@ fn explore<'a>(
         }
         let mut s = scores.clone();
         s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
-        big5 = s[6];
+        big5 = s[7];
     }else {
         big5 = 0.
     }
@@ -396,14 +396,14 @@ fn explore<'a>(
                         }
                         let mut s = scores1.clone();
                         s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
-                        big7 = s[6];
+                        big7 = s[7];
                     }else {
                         big7 = 0.
                     }
                     for j in 0..20 {
                         if comb[j] == [0, 0, 0] {
                             comb[j] = *card;
-                            if valid > 2 && scores1[j] >= big7{
+                            if valid > 20 && scores1[j] >= big7{
                                 scores1[j] = 0.;
                                 cards1.iter().enumerate().for_each(|(_, card)|{
                                     let mut mx = 0.;
@@ -419,13 +419,13 @@ fn explore<'a>(
                                     }
                                     scores1[j] += mx;
                                 });
-                            }else if valid <= 2{
+                            }else if valid <= 20{
                                 scores1[j] = exp_score(comb, lines, vars);
                             }
                             comb[j] = [0, 0, 0];
                         }
                     }
-                    scores[i] += scores1.iter().max_by(|f1, f2|f1.partial_cmp(f2).unwrap()).unwrap() / if valid > 2 {cards1.len() as f64} else {1.};
+                    scores[i] += scores1.iter().max_by(|f1, f2|f1.partial_cmp(f2).unwrap()).unwrap() / if valid > 20 {cards1.len() as f64} else {1.};
                 });
             }else if valid <= 1 {
                 scores[i] = exp_score(comb, lines, vars);
@@ -585,11 +585,11 @@ fn test(vars: &Vec<f64>, times: usize) -> f64 {
         if sc < lowest {
             lowest = sc;
         }
-        if (i + 1) % 1000 == 0 {
+        if (i + 1) % 500 == 0 {
             println!(
                 "Evaluated {} games, Part avg is {}, Total avg is {}, high: {}, low: {}",
                 i + 1,
-                p_score / 1000.,
+                p_score / 500.,
                 score / (i as f64 + 1.),
                 highest,
                 lowest
@@ -658,5 +658,5 @@ fn main() {
     ];
     eval_play(&vars);
     //evaluate(&vars, &vars2, 100000);
-    //test(&vars, 100000);
+    test(&vars, 100000);
 }
