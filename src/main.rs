@@ -213,6 +213,7 @@ fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -
             desired[num] += (length - filled) as f64;
             waiting[num] += scale * score;
         }
+        /* No more needed
         // 降低交错点的期望得分，变量var[8], var[9]。
         if status == "partial" {
             for j in 2..2 + length {
@@ -222,6 +223,7 @@ fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -
                 }
             }
         }
+         */
         // 计算每个数字有多少行
         if num != 0 && num != 10 {
             needs[num] = needs[num] + 1;
@@ -237,6 +239,7 @@ fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -
         }
         sum = sum - scale * waiting[i];
     }
+    /*
     // 降低交点牌得分概率
     scale = (block_count / 20.0).powf(2.);
     let mut times = 0.4;
@@ -253,7 +256,7 @@ fn exp_score(comb: &Vec<[usize; 3]>, lines: &Vec<[usize; 7]>, vars: &Vec<f64>) -
         if decide[i][0] == 3. {
             sum = sum - scale * vars[9] * decide[i][1];
         }
-    }
+    } */
     return sum;
 }
 
