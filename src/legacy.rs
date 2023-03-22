@@ -1,8 +1,8 @@
 use rand::seq::SliceRandom;
 
+use rand::prelude::*;
 use std::f64::consts::E;
 use std::io::stdin;
-use rand::prelude::*;
 
 fn select_from_probabilities(probabilities: &Vec<f64>) -> (usize, f64) {
     let mut rng = thread_rng();
@@ -342,9 +342,31 @@ fn eval_play(vars: &Vec<f64>) {
             let card: [usize; 3];
             if buf.len() == 6 {
                 card = [10; 3];
-            }else {
+            } else {
                 let mut chars = buf.chars();
-                card = [chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap(), chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap(), chars.next().unwrap().to_digit(10).unwrap().try_into().unwrap()]
+                card = [
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                    chars
+                        .next()
+                        .unwrap()
+                        .to_digit(10)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                ]
             }
             let (_, _) = step_eval(&mut comb, &lines, vars, card, true);
             let mut buf_put = String::new();

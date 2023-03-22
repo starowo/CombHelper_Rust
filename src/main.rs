@@ -317,7 +317,7 @@ fn step_exp<'a>(
     vars: &'a Vec<f64>,
     now: [usize; 3],
     log: bool,
-    eval: bool
+    eval: bool,
 ) -> (&'a mut Vec<[usize; 3]>, usize) {
     let mut valid = 0;
     let put;
@@ -331,15 +331,14 @@ fn step_exp<'a>(
             return step_eval(comb, lines, vars, now, log);
         }
         return step(comb, lines, vars, now, log);
-    }else {
-
+    } else {
         let exp = explore(comb, lines, cards, vars, now, valid);
         //put = select_from_probabilities(so&softmax(&exp)).0;
         let mut map = exp
-        .iter()
-        .enumerate()
-        .map(|(k, v)| (k, v))
-        .collect::<Vec<(usize, &f64)>>();
+            .iter()
+            .enumerate()
+            .map(|(k, v)| (k, v))
+            .collect::<Vec<(usize, &f64)>>();
         map.sort_by(|(k1, v1), (k2, v2)| v2.partial_cmp(v1).unwrap());
         put = map[0].0;
         if !eval {
@@ -351,7 +350,6 @@ fn step_exp<'a>(
             }
         }
         return (comb, put);
-                
     }
 }
 
@@ -361,7 +359,7 @@ fn explore<'a>(
     cards: &'a Vec<[usize; 3]>,
     vars: &'a Vec<f64>,
     now: [usize; 3],
-    valid: usize
+    valid: usize,
 ) -> [f64; 20] {
     let mut scores = [-1.; 20];
     let big5;
@@ -374,9 +372,9 @@ fn explore<'a>(
             }
         }
         let mut s = scores.clone();
-        s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
+        s.sort_by(|f1, f2| f2.partial_cmp(f1).unwrap());
         big5 = s[7];
-    }else {
+    } else {
         big5 = 0.
     }
     for i in 0..20 {
@@ -384,10 +382,14 @@ fn explore<'a>(
             comb[i] = now;
             if valid > 1 && scores[i] >= big5 {
                 scores[i] = 0.;
-                cards.iter().enumerate().for_each(|(ind, card)|{
+                let mut checked: Vec<[usize; 3]> = vec![];
+                cards.iter().enumerate().for_each(|(ind, card)| {
                     let mut scores1 = [0.; 20];
                     let mut cards1 = cards.clone();
                     cards1.remove(ind);
+                    if checked.contains(card) {
+                        return;
+                    }
                     let big7;
                     if valid > 2 {
                         for j in 0..20 {
@@ -398,18 +400,24 @@ fn explore<'a>(
                             }
                         }
                         let mut s = scores1.clone();
-                        s.sort_by(|f1, f2|f2.partial_cmp(f1).unwrap());
+                        s.sort_by(|f1, f2| f2.partial_cmp(f1).unwrap());
                         big7 = s[7];
-                    }else {
+                    } else {
                         big7 = 0.
                     }
                     for j in 0..20 {
                         if comb[j] == [0, 0, 0] {
                             comb[j] = *card;
-                            if valid > 20 && scores1[j] >= big7{
+                            if valid > 2 && scores1[j] >= big7 {
                                 scores1[j] = 0.;
-                                cards1.iter().enumerate().for_each(|(_, card)|{
+                                let mut checked: Vec<[usize; 3]> = vec![];
+                                cards1.iter().enumerate().for_each(|(ind, card)| {
+                                    let mut cards2 = cards1.clone();
+                                    cards2.remove(ind);
                                     let mut mx = 0.;
+                                    if checked.contains(card) {
+                                        return;
+                                    }
                                     for k in 0..20 {
                                         if comb[k] == [0, 0, 0] {
                                             comb[k] = *card;
@@ -420,17 +428,23 @@ fn explore<'a>(
                                             comb[k] = [0, 0, 0];
                                         }
                                     }
-                                    scores1[j] += mx;
+                                    scores1[j] += mx * if cards2.contains(card) {2.} else {1.};
+                                    checked.push(*card);
                                 });
-                            }else if valid <= 20{
+                            } else if valid <= 2 {
                                 scores1[j] = exp_score(comb, lines, vars);
                             }
                             comb[j] = [0, 0, 0];
                         }
                     }
-                    scores[i] += scores1.iter().max_by(|f1, f2|f1.partial_cmp(f2).unwrap()).unwrap() / if valid > 20 {cards1.len() as f64} else {1.};
+                    scores[i] += scores1
+                        .iter()
+                        .max_by(|f1, f2| f1.partial_cmp(f2).unwrap())
+                        .unwrap()
+                        / if valid > 2 { cards1.len() as f64 } else { 1. } * if cards1.contains(card) {2.} else {1.};
+                    checked.push(*card);
                 });
-            }else if valid <= 1 {
+            } else if valid <= 1 {
                 scores[i] = exp_score(comb, lines, vars);
             }
             comb[i] = [0, 0, 0];
@@ -562,7 +576,15 @@ fn self_play_compare(vars: &Vec<f64>, vars2: &Vec<f64>) -> (f64, f64) {
 fn self_play(vars: &Vec<f64>) -> f64 {
     let (mut comb, card_list, lines) = init();
     for i in 0..20 {
-        let (_, put) = step_exp(&mut comb, &lines, &card_list[i+1..].to_vec(), vars, card_list[i], false, false);
+        let (_, put) = step_exp(
+            &mut comb,
+            &lines,
+            &card_list[i + 1..].to_vec(),
+            vars,
+            card_list[i],
+            false,
+            false,
+        );
         /*println!(
             "card: {},{},{} put: {}",
             card_list[i][0], card_list[i][1], card_list[i][2], put
@@ -588,11 +610,11 @@ fn test(vars: &Vec<f64>, times: usize) -> f64 {
         if sc < lowest {
             lowest = sc;
         }
-        if (i + 1) % 500 == 0 {
+        if (i + 1) % 200 == 0 {
             println!(
                 "Evaluated {} games, Part avg is {}, Total avg is {}, high: {}, low: {}",
                 i + 1,
-                p_score / 500.,
+                p_score / 200.,
                 score / (i as f64 + 1.),
                 highest,
                 lowest
