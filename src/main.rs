@@ -345,7 +345,7 @@ fn step_exp<'a>(
             comb[put] = now;
         }
         if log {
-            for i in 0..3 {
+            for i in 0..6 {
                 println!("建议位置: {} 得分: {}", map[i].0, map[i].1);
             }
         }
@@ -536,6 +536,10 @@ fn eval_play(vars: &Vec<f64>) {
             let (_, _) = step_exp(&mut comb, &lines, &card_list, vars, card, true, true);
             let mut buf_put = String::new();
             while stdin().read_line(&mut buf_put).err().is_none() {
+                if buf_put.trim().len() > 2 {
+                    buf_put = String::new();
+                    continue;
+                }
                 let p = buf_put.trim().parse::<usize>().unwrap();
                 comb[p] = card;
                 break;
@@ -683,5 +687,5 @@ fn main() {
     ];
     eval_play(&vars);
     //evaluate(&vars, &vars2, 100000);
-    test(&vars, 100000);
+    //test(&vars, 100000);
 }
